@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>職場霸凌風險預警助手｜主管自我檢核工具</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --sub:#5a5a5a; --line:#d8d8d8; --bg:#f4f5f7;
+    --card:#ffffff; --brand:#2b4a6f; --brand-soft:#eef2f7;
+    --low:#2e7d52; --low-bg:#e8f4ed; --mid:#b7791f; --mid-bg:#fbf3e2;
+    --high:#c0392b; --high-bg:#fae9e7;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.65;}
+  header{background:var(--brand);color:#fff;padding:22px 20px;}
+  header h1{margin:0;font-size:20px;letter-spacing:.5px;}
+  header p{margin:6px 0 0;font-size:13px;opacity:.85;}
+  .wrap{max-width:920px;margin:0 auto;padding:18px 16px 60px;}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 14px;}
+  .tab{padding:9px 16px;border:1px solid var(--line);background:#fff;border-radius:999px;
+       cursor:pointer;font-size:14px;color:var(--sub);user-select:none;}
+  .tab.active{background:var(--brand);color:#fff;border-color:var(--brand);}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+        padding:18px 18px;margin-bottom:16px;}
+  .card h2{font-size:16px;margin:0 0 10px;}
+  .card h3{font-size:14px;margin:16px 0 6px;color:var(--brand);}
+  textarea{width:100%;min-height:170px;padding:12px;border:1px solid var(--line);
+           border-radius:10px;font-size:15px;font-family:inherit;resize:vertical;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;}
+  button.act{border:none;border-radius:10px;padding:11px 20px;font-size:15px;cursor:pointer;
+             font-family:inherit;}
+  .primary{background:var(--brand);color:#fff;}
+  .ghost{background:#fff;border:1px solid var(--line);color:var(--ink);}
+  .rec{background:#fff;border:1px solid var(--high);color:var(--high);}
+  .rec.on{background:var(--high);color:#fff;}
+  .hint{font-size:12.5px;color:var(--sub);}
+  .meter{height:16px;border-radius:999px;background:#eee;overflow:hidden;margin:6px 0;}
+  .meter > span{display:block;height:100%;width:0;transition:width .5s ease;}
+  .score-box{display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+  .badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:14px;font-weight:700;}
+  .b-low{background:var(--low-bg);color:var(--low);}
+  .b-mid{background:var(--mid-bg);color:var(--mid);}
+  .b-high{background:var(--high-bg);color:var(--high);}
+  .flag{border:1px solid var(--line);border-left-width:5px;border-radius:8px;padding:11px 13px;margin:9px 0;background:#fff;}
+  .flag .q{font-size:13px;color:var(--sub);margin:2px 0;}
+  .flag .cat{font-size:12.5px;font-weight:700;}
+  .flag mark{background:#ffe7a8;padding:0 2px;border-radius:3px;}
+  .flag .fix{font-size:13.5px;margin-top:6px;padding:8px 10px;background:var(--brand-soft);border-radius:6px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;background:#fff;}
+  th{font-weight:700;}
+  ul.tight{margin:6px 0;padding-left:20px;} ul.tight li{margin:3px 0;}
+  details{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;background:#fff;}
+  summary{cursor:pointer;font-weight:600;font-size:14px;}
+  .disclaimer{background:#fff8e1;border:1px solid #ecd9a0;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#6b5a1f;}
+  .law-ref{font-size:12px;color:var(--brand);background:var(--brand-soft);padding:2px 8px;border-radius:6px;display:inline-block;margin-top:6px;}
+  .check{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #eee;}
+  .check input{margin-top:5px;transform:scale(1.2);}
+  .empty{color:var(--sub);font-size:14px;padding:18px;text-align:center;}
+  .live-light{border-radius:10px;padding:16px;text-align:center;font-size:18px;font-weight:800;color:#fff;
+              transition:background .25s ease,box-shadow .25s ease;background:var(--low);}
+  .live-light.amber{background:var(--mid);}
+  .live-light.red{background:var(--high);box-shadow:0 0 0 4px var(--high-bg);animation:pulse .6s ease-in-out 3;}
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.02);}}
+  .live-alert{margin-top:12px;}
+  .live-alert .a-item{border:1px solid var(--high);border-left-width:5px;border-radius:8px;
+                      padding:10px 12px;margin:8px 0;background:#fff;font-size:14px;}
+  .live-alert .a-item .a-fix{margin-top:6px;padding:8px 10px;background:var(--brand-soft);border-radius:6px;}
+  .live-alert mark{background:#ffe7a8;padding:0 2px;border-radius:3px;}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+  .kpi div{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;background:#fff;}
+  .kpi b{display:block;font-size:22px;}
+  .kpi small{color:var(--sub);font-size:12px;}
+  footer{text-align:center;font-size:12px;color:var(--sub);padding:20px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>職場霸凌風險預警助手</h1>
+  <p>主管會議自我檢核工具  · 依《職業安全衛生法》職場霸凌防治專章（2026/7/1 施行）</p>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-t="input">① 會議輸入</div>
+    <div class="tab" data-t="result">② 風險判讀</div>
+    <div class="tab" data-t="checklist">③ 構成要件自檢</div>
+    <div class="tab" data-t="law">④ 法源依據</div>
+  </div>
+
+  <!-- ① INPUT -->
+  <section class="panel active" id="input">
+    <div class="card">
+      <h2>輸入會議內容</h2>
+      <p class="hint">可直接「貼上逐字稿」，或用「即時語音轉文字」邊開會邊記錄。所有分析皆在本機瀏覽器完成，內容不會上傳。</p>
+      <textarea id="text" placeholder="範例：&#10;主管：這個報告你到底會不會做，這麼簡單都做不好。&#10;主管：你不用參加下午的會議，沒你的事。&#10;主管：厲害喔，又遲到，不愧是你。"></textarea>
+      <div class="row">
+        <button class="act primary" onclick="analyze()">開始判讀風險</button>
+        <button class="act rec" id="recBtn" onclick="toggleRec()">🎙 即時語音轉文字</button>
+        <button class="act ghost" onclick="loadSample()">載入範例</button>
+        <button class="act ghost" onclick="clearText()">清除</button>
+      </div>
+      <p class="hint" id="recHint" style="margin-top:10px;"></p>
+    </div>
+
+    <div class="card" id="liveCard" style="display:none">
+      <h2>🛎 即時語氣儀表板</h2>
+      <p class="hint">錄音進行中即時判讀「剛剛說出口的話」。亮紅燈代表偵測到高風險語氣，請立即依建議緩和；綠燈代表語氣正常。</p>
+      <div class="live-light" id="liveLight">綠燈 · 語氣正常</div>
+      <div class="kpi">
+        <div><b id="liveScore">0</b><small>本場累計風險指數</small></div>
+        <div><b id="liveLevel">低</b><small>目前風險等級</small></div>
+        <div><b id="liveCount">0</b><small>命中語句數</small></div>
+      </div>
+      <div class="live-alert" id="liveAlert"></div>
+    </div>
+
+    <div class="disclaimer">
+      <b>使用定位與免責：</b>本工具為<b>事後／事前的自我提醒</b>，協助主管覺察可能讓人感到揶揄、孤立、諷刺、貶損的發言，並非法律認定，也不取代正式調查。是否構成職場霸凌須由雇主依法定程序綜合審酌。分析結果僅供主管自我修正參考。
+    </div>
+  </section>
+
+  <!-- ② RESULT -->
+  <section class="panel" id="result">
+    <div class="card">
+      <h2>整體風險評估</h2>
+      <div id="resultArea"><div class="empty">尚未分析。請至「① 會議輸入」貼上或錄製內容後點選「開始判讀風險」。</div></div>
+    </div>
+    <div class="card" id="flagsCard" style="display:none">
+      <h2>逐句風險標記與緩和建議</h2>
+      <div id="flags"></div>
+    </div>
+    <div class="card" id="reminderCard" style="display:none">
+      <h2>下次會議提醒</h2>
+      <div id="reminders"></div>
+    </div>
+  </section>
+
+  <!-- ③ CHECKLIST -->
+  <section class="panel" id="checklist">
+    <div class="card">
+      <h2>5 大構成要件自我檢核</h2>
+      <p class="hint">勞動部《職場霸凌防治準則》：原則上須<b>同時符合</b>下列 5 要件才構成霸凌（情節重大者不以「持續性」為必要）。逐項檢視可協助你判斷自身行為是否落入風險區。</p>
+      <div id="checkboxes"></div>
+      <div id="checkResult" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+  <!-- ④ LAW -->
+  <section class="panel" id="law">
+    <div class="card">
+      <h2>法律定義（職安法第 22 條之 1）</h2>
+      <p>本法所稱<b>職場霸凌</b>，指勞工於勞動場所執行職務，因其事業單位人員利用<b>職務或權勢等關係</b>，<b>逾越業務上必要且合理範圍</b>，<b>持續</b>以冒犯、威脅、冷落、孤立、侮辱或其他不當之言詞或行為，致其身心健康遭受危害。<b>但情節重大者，不以持續發生為必要。</b></p>
+      <span class="law-ref">2025/12/2 三讀 · 2025/12/19 公布 · 2026/7/1 施行</span>
+    </div>
+    <div class="card">
+      <h2>7 大行為樣態 A–G（本工具判讀分類依據）</h2>
+      <p class="hint">分類依據：勞動部職安署「執行職務遭受不法侵害預防指引（第四版）」七大樣態，並整合教育訓練語料庫之代表性句型與「合理管理對照」。</p>
+      <div id="lawTypes"></div>
+    </div>
+    <div class="card">
+      <h2>雇主分級義務</h2>
+      <table>
+        <tr><th>規模</th><th>法定義務</th></tr>
+        <tr><td>10 人以上</td><td>訂定職場霸凌申訴管道，並於工作場所公開揭示</td></tr>
+        <tr><td>30 人以上</td><td>以書面訂定防治措施、申訴及懲處規範並公開揭示；接獲申訴後 3 日內成立處理小組</td></tr>
+        <tr><td>100 人以上</td><td>調查小組外聘委員不得少於 1/2、申復小組外聘達 2/3，任一性別不得少於 1/3</td></tr>
+      </table>
+      <h3>罰則</h3>
+      <table>
+        <tr><th>違規類型</th><th>罰鍰</th></tr>
+        <tr><td>未履行法定義務</td><td>新台幣 3 萬 ～ 75 萬元</td></tr>
+        <tr><td>因此導致勞工發生職業病</td><td>3 萬 ～ 150 萬元</td></tr>
+        <tr><td>對申訴人施以不利處分</td><td>獨立罰則（依情節加重）</td></tr>
+      </table>
+      <p class="hint" style="margin-top:10px;">資料來源：《職業安全衛生法》職場霸凌防治專章、勞動部《職場霸凌防治準則》草案、勞動部不法侵害預防指引（第四版）。實際適用以勞動部最新公告為準，本工具不構成法律意見。</p>
+    </div>
+  </section>
+
+  <footer>職場霸凌風險預警助手 · 本機運算 · 僅供主管自我檢核與教育訓練用途</footer>
+</div>
+
+<script>
+/* ===================== 規則引擎：勞動部七大霸凌樣態（A–G） =====================
+   分類依據：勞動部職安署「執行職務遭受不法侵害預防指引（第四版）」七大樣態，
+   並整合使用者提供之「職場霸凌語句辨識資料庫」與「語言霸凌常見語句類型整理」。
+   每筆規則：p=關鍵詞比對、re=句型比對、w=語氣強度權重(L1≈5 / L2≈3 / L3≈3)、
+   why=辨識重點、fix=合理管理對照（正當管理應如何說）。 */
+const CATS = {
+  A:{ name:"A 吹毛求疵", color:"--mid",
+    law:"反覆挑剔、否定整體而非指出具體問題，且無明確標準。",
+    rules:[
+      {p:["你也交得出來","這種東西你也","這也叫","這什麼東西","這種品質"],w:4,why:"否定整體價值而非指出具體問題，無明確標準",fix:"「這份第3頁數據需更新到Q2，其餘可保留，今天下班前修正。」"},
+      {p:["我自己改比較快","算了我自己","我自己來","我自己弄"],w:3,why:"以放棄姿態暗示對方無能，剝奪改善機會",fix:"「我標註了三處需調整，有疑問我們15分鐘對齊一下。」"},
+      {re:[/講(了)?(幾遍|幾次|多少次|很多次)/,/聽不懂(中文|人話|話|嗎)/],w:5,why:"人身貶低、針對性，與工作改善無關",fix:"「上次提到的格式這次又出現，我們確認是哪個環節卡住。」"},
+      {p:["重做","全部重來","退件","打掉重練"],w:2,why:"反覆退件若無明確標準易構成刁難",fix:"退件時附上明確、可達成的修改標準與優先順序。"}
+    ]},
+  B:{ name:"B 孤立排擠", color:"--mid",
+    law:"以業務安排為名行邊緣化之實，系統性排除於資訊或社交之外。",
+    rules:[
+      {p:["先不用你了","不用你了","你忙你的","沒你的事","你不用參加","你不用來","這個你不用管","你別插手","這裡沒你的事","不用你來"],w:4,why:"以業務安排為名行邊緣化之實",fix:"「這季想讓你專注A案，B案先交給其他同仁，你的角色不變。」"},
+      {re:[/大家都(覺得|說|不喜歡|不想).{0,6}(跟你|你)/,/沒(有)?人(想|要)(跟|和)你/],w:4,why:"以匿名群體意見施壓，無從查證",fix:"「我觀察到交接時資訊落差較大，我們談談怎麼改善流程。」"},
+      {p:["不要讓他加入","別讓他加入","別跟他講話","不要理他","大家不用理他","跳過他","當他不存在"],w:5,why:"系統性排除於資訊與社交之外",fix:"資訊與通知對全組一致：「會議紀錄已同步全組，含未出席同仁。」"}
+    ]},
+  C:{ name:"C 當眾羞辱／威脅", color:"--high",
+    law:"公開貶低人格與價值，或以去留、職位作威脅，逾越管理權限。",
+    rules:[
+      {re:[/也配(領|拿|做|當)/,/你這種(程度|人|水準).{0,4}也/],w:5,why:"公開貶低人格與價值",fix:"績效問題應私下個別溝通，不在公開場合羞辱。"},
+      {p:["準備走人","你就準備","讓你待不下去","有的是辦法讓你","你最好小心","給我小心","讓你好看","讓你難看"],w:5,why:"以去留、職位作威脅，逾越管理權限",fix:"「這次缺失較嚴重，我需要你兩週內提出改善，我們設定檢核點。」"},
+      {p:["拖累團隊","拖累大家","拖油瓶","有些人就是","不是我針對誰"],w:4,why:"公開影射特定人，營造羞辱",fix:"「我們檢視整體時程落後的原因，一起想對策。」"}
+    ]},
+  D:{ name:"D 貶抑否定（含諷刺揶揄）", color:"--high",
+    law:"直接或以反諷否定對方價值、能力與貢獻，打壓存在感。",
+    rules:[
+      {re:[/你.{0,8}(很糟|糟糕|很差|差勁|不行|沒救|無可救藥|一無是處|什麼都做不好|很失敗|太差|沒用)/],w:5,why:"針對『人』的整體性貶低，而非具體行為",fix:"描述具體事實：「這份X的Y部分沒達到Z標準」，不對人下總評。"},
+      {re:[/你.{0,6}(一點都|完全|根本|從來)?.{0,4}(沒有|不會|缺乏|沒|不懂).{0,6}(反思|檢討|自覺|擔當|責任|抗壓|溝通|協調|判斷|配合|學習|危機意識|同理).{0,3}(能力|力|心|感)?/],w:5,why:"否定對方能力或人格特質，打壓存在感",fix:"對事的觀察＋期待：「我希望下次遇到X時，你可以先做Y。」"},
+      {p:["你的想法根本沒人","根本沒人會在意","沒人在意你","你永遠不可能","你永遠都","你什麼都做不好","大家都比你","你怎麼永遠"],w:5,why:"直接否定存在價值與貢獻",fix:"「這個提案目前還缺市場數據支撐，補上後我們再評估。」"},
+      {p:["這麼簡單的事還要問","這麼簡單都不會","這麼簡單都做不好","自己想辦法","這也不會"],w:4,why:"拒絕合理協助並否定提問價值",fix:"「這部分流程在共享文件第2節，看完還有疑問再找我。」"},
+      {p:["已經很不錯了啦","這樣已經很不錯","以你的程度","以你的能力"],w:3,why:"以貶低期待包裝的否定，暗示能力天花板",fix:"「這季你在X有成長，下季我們把目標放在Y。」"},
+      {p:["厲害喔","你真行","你很行","好棒棒","真有你的","了不起喔"],w:3,why:"隱性貶抑／反諷式稱讚，含揶揄意味",fix:"要肯定就具體肯定；要糾正就具體指出問題，避免反話。"},
+      {p:["不愧是你","果然是你","不意外","又來了","我就知道是你","你真是個笑話"],w:4,why:"以嘲諷暗示對方一貫無能，帶標籤化",fix:"避免貼標籤；針對「這一次的具體狀況」回饋即可。"},
+      {p:["你以為你是誰","你算老幾","這樣也敢說話","這樣也敢"],w:4,why:"貶抑性反問、嘲諷",fix:"移除嘲諷，聚焦在任務本身的期待與標準。"},
+      {re:[/(我覺得|我認為|說真的).{0,4}你.{0,8}(糟|差|不行|有問題|不適合|不夠)/,/你(這個人|這種人|就是這樣|這樣子|個性|的問題)/],w:4,why:"以主觀評斷或標籤貶抑對方",fix:"把「我覺得你…」換成「我觀察到這次的…」，回到具體可改善的行為。"}
+    ]},
+  E:{ name:"E 過量或剝奪職務", color:"--mid",
+    law:"指派遠超負荷之工作，或系統性剝奪職務內容、貶低專業。",
+    rules:[
+      {p:["今天都要好","做不完是你的問題","這些今天都要","下班前全部","沒做完不准走"],w:4,why:"以不可能達成的量施壓",fix:"「這三項本週交付，若時程衝突，我們一起排優先序。」"},
+      {p:["你就負責影印","負責訂便當就好","影印跟訂便當","你只要負責","這種雜事就你","端茶倒水"],w:3,why:"系統性剝奪職務內容，貶低專業",fix:"「行政支援先由你協調，你原本的專案職務同步進行。」"},
+      {p:["今天就要","現在馬上","一小時內","馬上給我"],w:3,why:"不合理急迫期限",fix:"如為急件，說明原因並協助排序其他工作。"}
+    ]},
+  F:{ name:"F 設下陷阱／推責", color:"--mid",
+    law:"事後否認指示、刻意製造錯誤再歸責，或以監控製造心理壓力。",
+    rules:[
+      {re:[/我(沒|哪有)說過/,/是你自己(理解|會意|認知)?(錯|會錯意)/],w:3,why:"事後否認指示，刻意製造錯誤再歸責",fix:"「我重新確認一下當時的指示，避免我們認知有落差。」"},
+      {re:[/(我)?都有在(觀察|看|盯|注意)(你|喔)?/],w:3,why:"以監控暗示製造心理壓力",fix:"「我會依這份明確的考核指標來看你的表現。」"},
+      {p:["都是因為你","你害大家","你害我們","就是你害的"],w:4,why:"情緒操控、歸咎於特定個人",fix:"釐清事實與流程問題，不把責任情緒性地歸於個人。"}
+    ]},
+  G:{ name:"G 隱私與人格攻擊", color:"--high",
+    law:"攻擊私領域、外貌、家庭、健康或人格，與工作無關。",
+    rules:[
+      {re:[/難怪.{0,6}(沒人|你會|沒有人)/,/你家(是不是)?.{0,4}(都這樣|這樣教)/],w:5,why:"攻擊家庭背景與私領域，與工作無關",fix:"私領域不屬管理範疇，完全避免。"},
+      {re:[/你長(這樣|成這樣|得)/,/笑你的(外表|長相|樣子)/,/這種(個性|長相|身材)/],w:5,why:"外貌、身心特徵或人格攻擊",fix:"外貌與生理特徵與工作表現無關，不得評論。"},
+      {p:["難怪沒人要跟你","沒人要跟你結婚","你是不是又身體不舒服","真是麻煩","又請假","裝病"],w:4,why:"以健康狀況或私事施加汙名",fix:"「需要的話可依規定請假，工作交接我們安排好。」"},
+      {p:["你最好小心一點","不照做你就知道","你給我記住","你等著瞧"],w:5,why:"威脅恐嚇",fix:"以具體績效標準與檢核點取代威脅。"}
+    ]}
+};
+
+/* ===================== 分析 ===================== */
+function splitSentences(t){
+  return t.replace(/\r/g,"").split(/[\n。！!？?；;]+/).map(s=>s.trim()).filter(Boolean);
+}
+// 回傳命中的文字（關鍵詞比對或句型比對），無命中回傳 null
+function matchRule(s,r){
+  if(r.p){ for(const kw of r.p){ if(s.includes(kw)) return kw; } }
+  if(r.re){ for(const re of r.re){ const m=s.match(re); if(m) return m[0]; } }
+  return null;
+}
+function analyze(){
+  const text = document.getElementById("text").value.trim();
+  if(!text){ alert("請先輸入或錄製會議內容。"); return; }
+  const sentences = splitSentences(text);
+  let total=0, hitCount=0;
+  const catHits={}; const flags=[];
+  for(const s of sentences){
+    for(const key in CATS){
+      for(const r of CATS[key].rules){
+        const m=matchRule(s,r); // 同規則同句只計一次
+        if(m){
+          total += r.w; hitCount++;
+          catHits[key]=(catHits[key]||0)+1;
+          flags.push({sentence:s,kw:m,cat:key,catName:CATS[key].name,color:CATS[key].color,why:r.why,fix:r.fix,w:r.w});
+        }
+      }
+    }
+  }
+  render(text,sentences.length,total,hitCount,catHits,flags);
+  switchTab("result");
+}
+
+function levelOf(total){
+  if(total>=10) return {t:"高風險",cls:"b-high",col:"var(--high)",pct:Math.min(100,40+total*3),
+    msg:"出現多處或高強度的不當言詞，已明顯落入霸凌風險區。建議於下次會議前重新檢視發言方式，並避免針對特定個人。"};
+  if(total>=4) return {t:"中度風險",cls:"b-mid",col:"var(--mid)",pct:Math.min(70,25+total*4),
+    msg:"出現若干可能讓人感到不適的語氣，雖未必構成霸凌，仍建議調整，降低累積成「持續性」的風險。"};
+  if(total>0) return {t:"低度風險",cls:"b-low",col:"var(--low)",pct:18,
+    msg:"偵測到少量需留意的措辭，整體尚屬可控。維持對事不對人即可。"};
+  return {t:"未偵測到明顯風險",cls:"b-low",col:"var(--low)",pct:8,
+    msg:"本次內容未命中規則庫中的風險語句。提醒：規則庫無法涵蓋所有情境，語氣、表情與脈絡仍需主管自行覺察。"};
+}
+
+function render(text,nSent,total,hitCount,catHits,flags){
+  const lv=levelOf(total);
+  const area=document.getElementById("resultArea");
+  let catRows="";
+  Object.keys(CATS).forEach(k=>{
+    const c=catHits[k]||0;
+    if(c>0) catRows+=`<tr><td>${CATS[k].name}</td><td>${c} 處</td></tr>`;
+  });
+  area.innerHTML=`
+    <div class="score-box">
+      <span class="badge ${lv.cls}">${lv.t}</span>
+      <span class="hint">風險指數 ${total}　|　命中語句 ${hitCount} 處　|　分析句數 ${nSent}</span>
+    </div>
+    <div class="meter"><span style="width:${lv.pct}%;background:${lv.col}"></span></div>
+    <p style="margin:8px 0 0">${lv.msg}</p>
+    ${catRows?`<h3>樣態分布</h3><table><tr><th>霸凌樣態</th><th>命中次數</th></tr>${catRows}</table>`:""}
+  `;
+  // flags
+  const fc=document.getElementById("flagsCard"), fl=document.getElementById("flags");
+  if(flags.length){
+    fc.style.display="block";
+    fl.innerHTML=flags.map(f=>{
+      const hl=f.sentence.replace(f.kw,`<mark>${f.kw}</mark>`);
+      return `<div class="flag" style="border-left-color:var(${f.color})">
+        <div class="cat" style="color:var(${f.color})">⚑ ${f.catName}</div>
+        <div class="q">原句：${hl}</div>
+        <div class="q">風險點：${f.why}</div>
+        <div class="fix">💡 緩和改寫：${f.fix}</div>
+      </div>`;
+    }).join("");
+  } else { fc.style.display="none"; }
+  // reminders
+  const rc=document.getElementById("reminderCard"), rm=document.getElementById("reminders");
+  rc.style.display="block";
+  const tips=buildReminders(catHits, total);
+  rm.innerHTML=`<ul class="tight">${tips.map(t=>`<li>${t}</li>`).join("")}</ul>`;
+}
+
+function buildReminders(catHits,total){
+  const base=[
+    "負面回饋一律「私下、對事、具體」：批評針對行為與成果，不針對人格與身分。",
+    "讓每個人把話講完；不在他人面前打斷、嘲諷或排除特定同仁發言。"
+  ];
+  const map={
+    A:"挑剔要對事不對人：附上明確、可達成的修改標準與優先順序，不否定整體價值。",
+    B:"資訊與會議通知對全組一致；避免「你不用參加／沒你的事」這類排除性措辭。",
+    C:"任何指正都私下個別進行；絕不以去留、職位作威脅，不在公開場合羞辱。",
+    D:"不對人下總評（如「你很糟」「你沒有反思能力」），戒掉反話揶揄；回到具體事實與下次可改善行為。",
+    E:"工作量與期限要合理；不剝奪專業職務，不以「做不完是你的問題」施壓。",
+    F:"不事後否認指示、不歸咎個人；用明確考核指標取代監控暗示。",
+    G:"絕不評論外貌、家庭、健康或人格等私領域；嚴禁威脅恐嚇。"
+  };
+  const extra=Object.keys(catHits).filter(k=>catHits[k]>0).map(k=>map[k]);
+  const arr=[...extra,...base];
+  if(total>=10) arr.unshift("⚠ 本次風險偏高：建議下次會議改以書面議程逐項討論，必要時請第三人（如HR）在場，降低對立。");
+  return [...new Set(arr)];
+}
+
+/* ===================== 分頁 ===================== */
+function switchTab(name){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.t===name));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===name));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>switchTab(t.dataset.t));
+
+/* ===================== 範例 / 清除 ===================== */
+function loadSample(){
+  document.getElementById("text").value=
+"主管：這個報告你到底會不會做，這麼簡單都做不好，重做。\n"+
+"主管：厲害喔，又遲到，不愧是你。\n"+
+"主管：下午的會議你不用參加，沒你的事。\n"+
+"主管：不爽不要做，你想被資遣嗎？\n"+
+"主管：這次大家辛苦了，下週我們把進度同步一下。";
+}
+function clearText(){ document.getElementById("text").value=""; }
+
+/* ===================== 語音轉文字 ===================== */
+let recog=null, recOn=false, manualStop=false, recBaseText="";
+let liveScore=0, liveCount=0;
+
+/* 即時判讀：分析剛說完的一段話，更新儀表板 */
+function liveAnalyze(chunk){
+  const sentences=splitSentences(chunk);
+  const hits=[];
+  for(const s of sentences){
+    for(const key in CATS){
+      for(const r of CATS[key].rules){
+        const m=matchRule(s,r);
+        if(m){ liveScore+=r.w; liveCount++; hits.push({s,m,key,name:CATS[key].name,why:r.why,fix:r.fix,w:r.w}); }
+      }
+    }
+  }
+  updateLive(hits);
+}
+function setLight(state,text){
+  const el=document.getElementById("liveLight");
+  el.className="live-light"+(state==="red"?" red":state==="amber"?" amber":"");
+  el.textContent=text;
+}
+function updateLiveKPI(){
+  document.getElementById("liveScore").textContent=liveScore;
+  document.getElementById("liveCount").textContent=liveCount;
+  const lv=levelOf(liveScore);
+  document.getElementById("liveLevel").textContent=lv.t.replace("風險","").replace("度","").replace("未偵測到明顯","低");
+}
+function updateLive(hits){
+  updateLiveKPI();
+  const alert=document.getElementById("liveAlert");
+  if(hits.length){
+    const maxW=Math.max(...hits.map(h=>h.w));
+    if(maxW>=5){ setLight("red","🔴 紅燈 · 偵測到高風險語氣，請立即緩和"); beep(); }
+    else { setLight("amber","🟠 黃燈 · 語氣偏向不當，建議調整"); }
+    alert.innerHTML=hits.map(h=>{
+      const hl=h.s.replace(h.m,`<mark>${h.m}</mark>`);
+      return `<div class="a-item">⚑ <b>${h.name}</b>：「${hl}」<br><span class="hint">${h.why}</span>
+        <div class="a-fix">💡 可改說：${h.fix}</div></div>`;
+    }).join("");
+  } else {
+    setLight("green","🟢 綠燈 · 語氣正常");
+    // 不清空既有警示，保留最近一次提醒供主管參考
+  }
+}
+let _actx=null;
+function beep(){
+  try{
+    _actx=_actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=_actx.createOscillator(), g=_actx.createGain();
+    o.type="sine"; o.frequency.value=880; o.connect(g); g.connect(_actx.destination);
+    g.gain.setValueAtTime(0.0001,_actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.15,_actx.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,_actx.currentTime+0.25);
+    o.start(); o.stop(_actx.currentTime+0.26);
+  }catch(_){}
+}
+function toggleRec(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const hint=document.getElementById("recHint"), btn=document.getElementById("recBtn");
+  if(!SR){ hint.textContent="⚠ 此瀏覽器不支援語音辨識，建議使用 Chrome／Edge，或直接貼上逐字稿。"; return; }
+  // 手動停止
+  if(recOn){ manualStop=true; recog.stop(); return; }
+
+  manualStop=false;
+  recBaseText=document.getElementById("text").value; // 以現有文字為基底，續錄不覆蓋
+  if(recBaseText && !recBaseText.endsWith("\n")) recBaseText+="\n";
+  // 啟動即時儀表板
+  liveScore=0; liveCount=0;
+  document.getElementById("liveCard").style.display="block";
+  document.getElementById("liveAlert").innerHTML="";
+  setLight("green","🟢 綠燈 · 語氣正常"); updateLiveKPI();
+  recog=new SR(); recog.lang="zh-TW"; recog.continuous=true; recog.interimResults=true;
+
+  recog.onstart=()=>{ recOn=true; btn.classList.add("on"); btn.textContent="⏹ 停止錄音";
+    hint.textContent="● 持續錄音中…文字會即時填入上方，會持續記錄直到你按「停止錄音」。"; };
+
+  recog.onresult=(e)=>{
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const tr=e.results[i][0].transcript;
+      if(e.results[i].isFinal){ recBaseText+=tr+"\n"; liveAnalyze(tr); } else { interim+=tr; }
+    }
+    document.getElementById("text").value=recBaseText+interim;
+  };
+
+  // 發生 no-speech / 逾時等非致命錯誤時，不要中斷，交給 onend 自動續錄
+  recog.onerror=(e)=>{
+    if(e.error==="not-allowed"||e.error==="service-not-allowed"){
+      manualStop=true; hint.textContent="⚠ 麥克風權限被拒，請於瀏覽器允許麥克風後再試。"; return;
+    }
+    // no-speech / aborted / network 等：靜默，等 onend 重啟
+  };
+
+  // 關鍵：瀏覽器因停頓自動結束時，只要不是手動停止就自動續錄，達成「不中斷」
+  recog.onend=()=>{
+    if(!manualStop){
+      try{ recog.start(); return; }catch(_){ /* 偶發重入，略過 */ }
+    }
+    recOn=false; btn.classList.remove("on"); btn.textContent="🎙 即時語音轉文字";
+    hint.textContent="錄音已停止。可按「開始判讀風險」分析。";
+  };
+
+  recog.start();
+}
+
+/* ===================== 構成要件自檢 ===================== */
+const ELEMENTS=[
+  {k:"職場相關",d:"行為發生於勞動場所，且與職務執行相關（含遠距／LINE、Teams、Email 等職務管道）。"},
+  {k:"權勢關係",d:"行為人藉由職務或權勢關係為之（主管對下屬、平級、甚至下屬對主管皆可能）。"},
+  {k:"逾越合理範圍",d:"明顯超過業務上必要之合理範圍，針對「人」而非「事」。"},
+  {k:"持續性",d:"具重複性行為（但情節重大者，即使一次亦可能成立）。"},
+  {k:"造成身心危害",d:"實質造成對方身心健康受損。"}
+];
+function initCheck(){
+  const box=document.getElementById("checkboxes");
+  box.innerHTML=ELEMENTS.map((e,i)=>`<label class="check">
+    <input type="checkbox" onchange="evalCheck()" id="ck${i}">
+    <span><b>${e.k}</b>　<span class="hint">${e.d}</span></span></label>`).join("");
+}
+function evalCheck(){
+  let n=0; ELEMENTS.forEach((e,i)=>{ if(document.getElementById("ck"+i).checked) n++; });
+  const r=document.getElementById("checkResult");
+  let msg,cls;
+  if(n>=5){ cls="b-high"; msg="5 項要件均符合 → 高度可能構成職場霸凌。請立即停止該行為，並考量循正式管道處理。"; }
+  else if(n>=3){ cls="b-mid"; msg=`已符合 ${n} 項要件 → 已具相當風險。情節重大者即使僅符合部分要件、僅發生一次仍可能成立，務必調整。`; }
+  else if(n>=1){ cls="b-low"; msg=`符合 ${n} 項要件 → 目前風險較低，但仍建議留意，避免累積成持續性行為。`; }
+  else { cls="b-low"; msg="尚未勾選 → 請逐項對照自身行為誠實檢視。"; }
+  r.innerHTML=`<span class="badge ${cls}">${msg}</span>`;
+}
+
+/* ===================== 法源樣態渲染 ===================== */
+function initLaw(){
+  const box=document.getElementById("lawTypes");
+  box.innerHTML=Object.keys(CATS).map(k=>{
+    const c=CATS[k];
+    const kws=c.rules.flatMap(r=>r.p||[]).slice(0,6);
+    const examples=kws.length?`常見命中語句（部分）：${kws.join("、")}…`:"採語意句型比對（如「你+負面評價」「否定～能力」等句構）。";
+    return `<details><summary>${c.name}</summary>
+      <p style="margin:8px 0 4px">${c.law}</p>
+      <p class="hint">${examples}</p></details>`;
+  }).join("");
+}
+
+initCheck(); evalCheck(); initLaw();
+</script>
+</body>
+</html>
