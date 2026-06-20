@@ -109,7 +109,7 @@
     <div class="card">
       <h2>輸入會議內容</h2>
       <p class="hint">可直接「貼上逐字稿」，或用「即時語音轉文字」邊開會邊記錄。所有判讀皆在本機瀏覽器完成。</p>
-      <textarea id="text" placeholder="範例：&#10;主管：這個報告你到底會不會做，這麼簡單都做不好。&#10;主管：你不用參加下午的會議，沒你的事。&#10;主管：這點壓力都受不了，現在年輕人就是抗壓性差。"></textarea>
+      <textarea id="text" oninput="liveTextDebounced()" placeholder="範例：&#10;主管：這個報告你到底會不會做，這麼簡單都做不好。&#10;主管：你不用參加下午的會議，沒你的事。&#10;主管：這點壓力都受不了，現在年輕人就是抗壓性差。"></textarea>
       <div class="row">
         <button class="act primary" onclick="analyze()">開始判讀風險</button>
         <button class="act ghost" onclick="loadSample()">載入範例</button>
@@ -138,12 +138,12 @@
       </div>
     </div>
 
-    <div class="card" id="liveCard" style="display:none">
+    <div class="card" id="liveCard">
       <h2>🛎 即時語氣儀表板</h2>
-      <p class="hint">錄音進行中即時判讀「剛剛說出口的話」。亮紅燈代表偵測到高風險語氣，請立即依建議緩和；綠燈代表語氣正常。</p>
+      <p class="hint">不必按「判讀風險」——你<b>一邊打字、一邊錄音</b>，這裡就會即時亮燈：偵測到高風險語氣會亮紅燈並嗶一聲，綠燈代表目前語氣正常。</p>
       <div class="live-light" id="liveLight">🟢 綠燈 · 語氣正常</div>
       <div class="kpi">
-        <div><b id="liveScore">0</b><small>本場累計風險指數</small></div>
+        <div><b id="liveScore">0</b><small>目前風險指數</small></div>
         <div><b id="liveLevel">低</b><small>目前風險等級</small></div>
         <div><b id="liveCount">0</b><small>命中語句數</small></div>
       </div>
@@ -517,8 +517,9 @@ function loadSample(){
 "主管：這點壓力都受不了？現在年輕人就是抗壓性差。\n"+
 "主管：做不到就是沒做到，我只看結果，你自己看著辦。\n"+
 "主管：這次大家辛苦了，下週我們把進度同步一下。";
+  liveUpdateFromText();
 }
-function clearText(){ document.getElementById("text").value=""; }
+function clearText(){ document.getElementById("text").value=""; liveUpdateFromText(); }
 function setSens(v){
   STRICT=(v==="strict");
   const t=document.getElementById("text").value.trim();
@@ -557,19 +558,42 @@ async function toggleMR(){
   mediaRec.start(1000); // 每秒切片，降低長錄遺失風險
 }
 
-/* 即時判讀：分析剛說完的一段話，更新儀表板 */
-function liveAnalyze(chunk){
-  const sentences=splitSentences(chunk);
-  const hits=[];
+/* 即時判讀：分析「目前文字框內容」，邊打字或邊講都即時更新儀表板 */
+let prevLive="green", liveTimer=null;
+function liveTextDebounced(){
+  if(liveTimer) clearTimeout(liveTimer);
+  liveTimer=setTimeout(liveUpdateFromText,300);
+}
+function liveUpdateFromText(){
+  const text=document.getElementById("text").value;
+  const sentences=splitSentences(text);
+  let total=0, maxW=0; const hits=[];
   for(const s of sentences){
     for(const key in CATS){
       for(const r of CATS[key].rules){
         const m=matchRule(s,r);
-        if(m){ liveScore+=r.w; liveCount++; hits.push({s,m,name:CATS[key].name,why:r.why,fix:r.fix,w:r.w}); }
+        if(m){ total+=r.w; if(r.w>maxW)maxW=r.w; hits.push({s,m,name:CATS[key].name,why:r.why,fix:r.fix,w:r.w}); }
       }
     }
   }
-  updateLive(hits);
+  liveScore=total; liveCount=hits.length;
+  updateLiveKPI();
+  const alertBox=document.getElementById("liveAlert");
+  let state="green";
+  if(hits.length){
+    state = (maxW>=4 || total>=4) ? "red" : "amber";
+    alertBox.innerHTML=hits.slice(-6).reverse().map(h=>{
+      const hl=h.s.replace(h.m,`<mark>${h.m}</mark>`);
+      return `<div class="a-item">⚑ <b>${h.name}</b>：「${hl}」<br><span class="hint">${h.why}</span>
+        <div class="a-fix">💡 可改說：${h.fix}</div></div>`;
+    }).join("");
+  } else {
+    alertBox.innerHTML="";
+  }
+  if(state==="red"){ setLight("red","🔴 紅燈 · 偵測到高風險語氣，請立即緩和"); if(prevLive!=="red") beep(); }
+  else if(state==="amber"){ setLight("amber","🟠 黃燈 · 語氣偏向不當，建議調整"); }
+  else { setLight("green","🟢 綠燈 · 語氣正常"); }
+  prevLive=state;
 }
 function setLight(state,text){
   const el=document.getElementById("liveLight");
@@ -581,22 +605,6 @@ function updateLiveKPI(){
   document.getElementById("liveCount").textContent=liveCount;
   const t=levelOf(liveScore).t;
   document.getElementById("liveLevel").textContent = t.indexOf("高")>=0?"高":(t.indexOf("中")>=0?"中":"低");
-}
-function updateLive(hits){
-  updateLiveKPI();
-  const alertBox=document.getElementById("liveAlert");
-  if(hits.length){
-    const maxW=Math.max.apply(null,hits.map(h=>h.w));
-    if(maxW>=4){ setLight("red","🔴 紅燈 · 偵測到高風險語氣，請立即緩和"); beep(); }
-    else { setLight("amber","🟠 黃燈 · 語氣偏向不當，建議調整"); }
-    alertBox.innerHTML=hits.map(h=>{
-      const hl=h.s.replace(h.m,`<mark>${h.m}</mark>`);
-      return `<div class="a-item">⚑ <b>${h.name}</b>：「${hl}」<br><span class="hint">${h.why}</span>
-        <div class="a-fix">💡 可改說：${h.fix}</div></div>`;
-    }).join("");
-  } else {
-    setLight("green","🟢 綠燈 · 語氣正常");
-  }
 }
 let _actx=null;
 function beep(){
@@ -620,11 +628,8 @@ function toggleRec(){
   manualStop=false;
   recBaseText=document.getElementById("text").value;
   if(recBaseText && !recBaseText.endsWith("\n")) recBaseText+="\n";
-  // 啟動即時儀表板
-  liveScore=0; liveCount=0;
-  document.getElementById("liveCard").style.display="block";
-  document.getElementById("liveAlert").innerHTML="";
-  setLight("green","🟢 綠燈 · 語氣正常"); updateLiveKPI();
+  // 啟動即時儀表板（依目前文字框內容即時判讀）
+  liveUpdateFromText();
 
   recog=new SR(); recog.lang="zh-TW"; recog.continuous=true; recog.interimResults=true;
   recog.onstart=()=>{ recOn=true; btn.classList.add("on"); btn.textContent="⏹ 停止錄音";
@@ -633,9 +638,10 @@ function toggleRec(){
     let interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){
       const tr=e.results[i][0].transcript;
-      if(e.results[i].isFinal){ recBaseText+=tr+"\n"; liveAnalyze(tr); } else { interim+=tr; }
+      if(e.results[i].isFinal){ recBaseText+=tr+"\n"; } else { interim+=tr; }
     }
     document.getElementById("text").value=recBaseText+interim;
+    liveUpdateFromText();
   };
   recog.onerror=(e)=>{
     if(e.error==="not-allowed"||e.error==="service-not-allowed"){
@@ -946,7 +952,7 @@ function barChart(items){
 }
 
 renderScenarios(); newPremeet(); renderTodayTip(); restoreNotif(); renderTrend();
-initCheck(); evalCheck(); initLaw();
+initCheck(); evalCheck(); initLaw(); liveUpdateFromText();
 </script>
 </body>
 </html>
