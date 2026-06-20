@@ -1,0 +1,16 @@
+{
+  "name": "職場霸凌風險預警助手",
+  "short_name": "防霸凌助手",
+  "description": "主管會議自我檢核、即時語氣提醒與情境自我教練工具",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5f7",
+  "theme_color": "#2b4a6f",
+  "lang": "zh-Hant-TW",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

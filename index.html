@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>職場霸凌風險預警助手｜主管自我檢核工具</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2b4a6f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="防霸凌助手">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
     --ink:#1a1a1a; --sub:#5a5a5a; --line:#d8d8d8; --bg:#f4f5f7;
@@ -78,6 +84,7 @@
   .kpi b{display:block;font-size:22px;}
   .kpi small{color:var(--sub);font-size:12px;}
   footer{text-align:center;font-size:12px;color:var(--sub);padding:20px;}
+  .fld{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px;flex:1;min-width:140px;}
 </style>
 </head>
 <body>
@@ -92,27 +99,49 @@
     <div class="tab" data-t="result">② 風險判讀</div>
     <div class="tab" data-t="checklist">③ 構成要件自檢</div>
     <div class="tab" data-t="law">④ 法源依據</div>
+    <div class="tab" data-t="nudge">⑤ 情境提醒</div>
+    <div class="tab" data-t="trend">⑥ 我的趨勢</div>
+    <button id="installBtn" class="act ghost" style="display:none;margin-left:auto;padding:8px 14px" onclick="doInstall()">📲 安裝 App</button>
   </div>
 
   <!-- ① INPUT -->
   <section class="panel active" id="input">
     <div class="card">
       <h2>輸入會議內容</h2>
-      <p class="hint">可直接「貼上逐字稿」，或用「即時語音轉文字」邊開會邊記錄。所有分析皆在本機瀏覽器完成，內容不會上傳。</p>
-      <textarea id="text" placeholder="範例：&#10;主管：這個報告你到底會不會做，這麼簡單都做不好。&#10;主管：你不用參加下午的會議，沒你的事。&#10;主管：厲害喔，又遲到，不愧是你。"></textarea>
+      <p class="hint">可直接「貼上逐字稿」，或用「即時語音轉文字」邊開會邊記錄。所有判讀皆在本機瀏覽器完成。</p>
+      <textarea id="text" placeholder="範例：&#10;主管：這個報告你到底會不會做，這麼簡單都做不好。&#10;主管：你不用參加下午的會議，沒你的事。&#10;主管：這點壓力都受不了，現在年輕人就是抗壓性差。"></textarea>
       <div class="row">
         <button class="act primary" onclick="analyze()">開始判讀風險</button>
-        <button class="act rec" id="recBtn" onclick="toggleRec()">🎙 即時語音轉文字</button>
         <button class="act ghost" onclick="loadSample()">載入範例</button>
         <button class="act ghost" onclick="clearText()">清除</button>
+        <label class="hint" style="margin-left:auto">敏感度
+          <select id="sens" onchange="setSens(this.value)" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;">
+            <option value="strict" selected>嚴格（建議）</option>
+            <option value="std">標準</option>
+          </select>
+        </label>
       </div>
-      <p class="hint" id="recHint" style="margin-top:10px;"></p>
+
+      <h3 style="margin:16px 0 4px">錄音方式（擇一或併用）</h3>
+      <div class="row">
+        <button class="act rec" id="recBtn" onclick="toggleRec()">🎙 即時語音轉文字</button>
+        <button class="act rec" id="mrBtn" onclick="toggleMR()">⏺ 穩定錄音存檔（不中斷）</button>
+      </div>
+      <p class="hint" style="margin-top:8px;">
+        ・<b>即時語音轉文字</b>：邊講邊上字幕並即時亮燈提醒，但瀏覽器引擎長時間會偶爾斷續，適合即時提醒。<br>
+        ・<b>穩定錄音存檔</b>：純錄音，<b>全程不中斷</b>，結束後存成音檔，再用 Notion／Word 聽寫等工具轉逐字稿後貼回分析（最穩定）。
+      </p>
+      <p class="hint" id="recHint" style="margin-top:6px;"></p>
+      <div id="mrOut" style="margin-top:8px;display:none">
+        <audio id="mrAudio" controls style="width:100%"></audio>
+        <a id="mrDl" class="hint" download="會議錄音.webm" style="display:inline-block;margin-top:6px;color:var(--brand)">⬇ 下載音檔</a>
+      </div>
     </div>
 
     <div class="card" id="liveCard" style="display:none">
       <h2>🛎 即時語氣儀表板</h2>
       <p class="hint">錄音進行中即時判讀「剛剛說出口的話」。亮紅燈代表偵測到高風險語氣，請立即依建議緩和；綠燈代表語氣正常。</p>
-      <div class="live-light" id="liveLight">綠燈 · 語氣正常</div>
+      <div class="live-light" id="liveLight">🟢 綠燈 · 語氣正常</div>
       <div class="kpi">
         <div><b id="liveScore">0</b><small>本場累計風險指數</small></div>
         <div><b id="liveLevel">低</b><small>目前風險等級</small></div>
@@ -122,7 +151,7 @@
     </div>
 
     <div class="disclaimer">
-      <b>使用定位與免責：</b>本工具為<b>事後／事前的自我提醒</b>，協助主管覺察可能讓人感到揶揄、孤立、諷刺、貶損的發言，並非法律認定，也不取代正式調查。是否構成職場霸凌須由雇主依法定程序綜合審酌。分析結果僅供主管自我修正參考。
+      <b>使用定位與免責：</b>本工具為<b>事後／事前的自我提醒</b>，協助主管覺察可能讓人感到揶揄、孤立、諷刺、貶損或壓迫的發言，並非法律認定，也不取代正式調查。是否構成職場霸凌須由雇主依法定程序綜合審酌。分析結果僅供主管自我修正參考。
     </div>
   </section>
 
@@ -131,6 +160,10 @@
     <div class="card">
       <h2>整體風險評估</h2>
       <div id="resultArea"><div class="empty">尚未分析。請至「① 會議輸入」貼上或錄製內容後點選「開始判讀風險」。</div></div>
+      <div class="row" id="logRow" style="display:none">
+        <button class="act primary" onclick="logResult()">📈 記錄這次結果到我的趨勢</button>
+        <span class="hint" id="logMsg"></span>
+      </div>
     </div>
     <div class="card" id="flagsCard" style="display:none">
       <h2>逐句風險標記與緩和建議</h2>
@@ -139,6 +172,30 @@
     <div class="card" id="reminderCard" style="display:none">
       <h2>下次會議提醒</h2>
       <div id="reminders"></div>
+    </div>
+
+    <div class="card" id="llmCard">
+      <h2>🤖 LLM 語意複核（選用 · 進階）</h2>
+      <p class="hint">在規則判讀之外，用大型語言模型做一次<b>語意複核</b>：補抓規則漏掉的隱性語氣、降低誤判，並針對管理方法給調整建議。
+        ⚠ 會把逐字稿傳送到你設定的模型端點，請<b>先去識別化（移除姓名）</b>，或使用本機模型以保護隱私。</p>
+      <div class="row">
+        <label class="hint">端點預設
+          <select id="llmPreset" class="fld" style="flex:none;min-width:auto" onchange="llmPreset(this.value)">
+            <option value="ollama" selected>本機 Ollama（最保護隱私）</option>
+            <option value="openai">OpenAI 相容端點</option>
+            <option value="custom">自訂</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <input id="llmEndpoint" class="fld" placeholder="端點 URL，如 http://localhost:11434/v1" value="http://localhost:11434/v1">
+        <input id="llmModel" class="fld" placeholder="模型，如 llama3.1 / gpt-4o-mini" value="llama3.1">
+        <input id="llmKey" class="fld" type="password" placeholder="API Key（本機模型可留空）">
+      </div>
+      <div class="row">
+        <button class="act primary" onclick="llmReview()">用 LLM 複核目前內容</button>
+      </div>
+      <div id="llmOut" style="margin-top:10px"></div>
     </div>
   </section>
 
@@ -161,7 +218,7 @@
     </div>
     <div class="card">
       <h2>7 大行為樣態 A–G（本工具判讀分類依據）</h2>
-      <p class="hint">分類依據：勞動部職安署「執行職務遭受不法侵害預防指引（第四版）」七大樣態，並整合教育訓練語料庫之代表性句型與「合理管理對照」。</p>
+      <p class="hint">分類依據：勞動部職安署「執行職務遭受不法侵害預防指引（第四版）」七大樣態，並整合教育訓練語料庫之代表性句型與「合理管理對照」。另含本工具加嚴偵測層 H（隱性施壓／業務壓迫）。</p>
       <div id="lawTypes"></div>
     </div>
     <div class="card">
@@ -183,11 +240,66 @@
     </div>
   </section>
 
+  <!-- ⑤ NUDGE -->
+  <section class="panel" id="nudge">
+    <div class="card">
+      <h2>🕒 開會前 30 秒自檢</h2>
+      <p class="hint">開會前花 30 秒勾一遍，把覺察帶進會議。比一次性訓練更能在「行為發生的那一刻」生效。</p>
+      <div id="premeet"></div>
+      <div class="row"><button class="act ghost" onclick="newPremeet()">換一個情境提醒／重設</button></div>
+      <div id="premeetMsg" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>✉️ 傳訊前自檢（避免下班紅線）</h2>
+      <p class="hint">把你「準備傳出去」的訊息貼上，按一下檢查語氣與時機，再決定要不要送出。</p>
+      <textarea id="msgText" style="min-height:90px" placeholder="貼上你要傳給同仁的訊息…"></textarea>
+      <div class="row"><button class="act primary" onclick="checkMsg()">檢查這則訊息</button></div>
+      <div id="msgOut" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>🔔 每日微提醒</h2>
+      <p class="hint">每天一則「if-then 微腳本」，把改變切成小劑量、長期滲透。提醒只在你自己裝置上、屬於你自己的教練。</p>
+      <div class="row">
+        <label class="hint">提醒時間 <input id="notifTime" type="time" value="08:30" class="fld" style="flex:none;min-width:auto"></label>
+        <button class="act primary" onclick="enableNotif()">啟用每日提醒</button>
+        <button class="act ghost" onclick="disableNotif()">關閉</button>
+      </div>
+      <p class="hint" id="notifMsg" style="margin-top:6px"></p>
+      <h3>今日微提醒</h3>
+      <div id="todayTip"></div>
+    </div>
+
+    <div class="card">
+      <h2>📋 十大高風險情境 · if-then 微腳本</h2>
+      <p class="hint">會議以外最容易「不自知」踩線的十個情境。每項都附「觸發時機」與「替代腳本」，遇到時照著做即可。</p>
+      <div id="scenarioList"></div>
+    </div>
+  </section>
+
+  <!-- ⑥ TREND -->
+  <section class="panel" id="trend">
+    <div class="card">
+      <h2>📈 我的風險趨勢（私密 · 只存在這台裝置）</h2>
+      <p class="hint">每次判讀後按「記錄這次結果」即可累積。看見自己的曲線往下走，是最有效的自我覺察——這份資料只存在你本機，不會上傳、也不會給任何人看。</p>
+      <div class="kpi">
+        <div><b id="tCount">0</b><small>累計記錄場次</small></div>
+        <div><b id="tAvg">—</b><small>平均風險指數</small></div>
+        <div><b id="tTrend">—</b><small>近期趨勢</small></div>
+        <div><b id="tTopCat">—</b><small>最常見樣態</small></div>
+      </div>
+      <div id="trendChart" style="margin-top:14px"></div>
+      <div id="trendList" style="margin-top:10px"></div>
+      <div class="row"><button class="act ghost" onclick="clearLog()">清除所有記錄</button></div>
+    </div>
+  </section>
+
   <footer>職場霸凌風險預警助手 · 本機運算 · 僅供主管自我檢核與教育訓練用途</footer>
 </div>
 
 <script>
-/* ===================== 規則引擎：勞動部七大霸凌樣態（A–G） =====================
+/* ===================== 規則引擎：勞動部七大霸凌樣態（A–G）＋加嚴層 H =====================
    分類依據：勞動部職安署「執行職務遭受不法侵害預防指引（第四版）」七大樣態，
    並整合使用者提供之「職場霸凌語句辨識資料庫」與「語言霸凌常見語句類型整理」。
    每筆規則：p=關鍵詞比對、re=句型比對、w=語氣強度權重(L1≈5 / L2≈3 / L3≈3)、
@@ -249,6 +361,18 @@ const CATS = {
       {re:[/你長(這樣|成這樣|得)/,/笑你的(外表|長相|樣子)/,/這種(個性|長相|身材)/],w:5,why:"外貌、身心特徵或人格攻擊",fix:"外貌與生理特徵與工作表現無關，不得評論。"},
       {p:["難怪沒人要跟你","沒人要跟你結婚","你是不是又身體不舒服","真是麻煩","又請假","裝病"],w:4,why:"以健康狀況或私事施加汙名",fix:"「需要的話可依規定請假，工作交接我們安排好。」"},
       {p:["你最好小心一點","不照做你就知道","你給我記住","你等著瞧"],w:5,why:"威脅恐嚇",fix:"以具體績效標準與檢核點取代威脅。"}
+    ]},
+  H:{ name:"H 隱性施壓／業務壓迫（加嚴偵測）", color:"--mid",
+    law:"本工具加嚴偵測層（非官方七大樣態）：看似合理、實則施加心理壓力或情緒勒索之言詞，長期累積易致重大身心壓力。",
+    rules:[
+      {p:["抗壓性","草莓族","玻璃心","太敏感","開不起玩笑","小題大作","想太多","情緒化","這點壓力","這點小事","這樣就受不了","這樣就哭","現在年輕人","你們年輕人","現在的人"],w:3,why:"以貶低抗壓性／世代標籤施壓、淡化對方感受",fix:"承認對方感受，討論可調整的具體工作條件，而非評斷其情緒或世代。"},
+      {p:["你自己看著辦","後果自己負責","出事你負責","出事你扛","別怪我沒提醒","好自為之","你好自為之","我把話放在這","別讓我失望","不要讓我難做","我是為你好","這樣是為你好","我把你當自己人"],w:4,why:"以隱晦語句施加責任與恐懼，屬情緒勒索",fix:"明確說明期待、風險與支援，不要用「你自己負責」把壓力轉嫁。"},
+      {p:["使命必達","沒有藉口","不要找藉口","我不想聽理由","我只看結果","結果論","沒做到就是沒做到","沒有做不到","一定要結案","今天一定要","想做的人很多","我可以找別人","你不做有的是人","不做就換人","不想做有的是人"],w:4,why:"以結果論與可替代性施壓",fix:"設定合理目標與檢核點，遇阻一起排解，而非以「可被取代」恫嚇。"},
+      {re:[/(隨時|24小時|二十四小時).{0,4}(待命|找得到人)/,/為(什麼|啥).{0,4}(還沒|不)(回|接)/,/(假日|周末|週末|下班|半夜|凌晨).{0,4}(也要|還要|還在|要待命|要回)/],w:3,why:"侵犯下班／休息界線，造成持續壓力（呼應下班通訊紅線）",fix:"非緊急事務於工作時間內處理；尊重員工休息與離線權。"},
+      {p:["別人都可以","人家都做得到","你看看人家","我當年","以前我們","這麼早就下班","這就走了","大家都還在你就"],w:3,why:"以比較與愧疚感施壓",fix:"以個人目標與成長對話取代與他人比較。"},
+      {re:[/我(只是|只)(建議|提醒|說說).{0,8}(不過|但|可是|啦)/,/你確定(要這樣|喔|嗎)/],w:3,why:"以「建議」包裝的施壓或質疑（被動式攻擊）",fix:"若是要求就明說要求與理由；若真是建議，就尊重對方的決定。"},
+      {re:[/(老是|每次都|總是|又是你|怎麼又|動不動就).{0,6}(出錯|遲到|忘記|拖|做不好|搞砸|出包|犯錯)/],w:3,why:"以「老是／每次」全稱否定，累積貶抑壓力",fix:"只就「這一次」的具體事實回饋，不用全稱句把對方定型。"},
+      {p:["你的態度","態度問題","給我態度","什麼態度","擺臭臉","你那什麼表情","你那個表情"],w:3,why:"針對態度、表情的主觀指責，造成壓迫",fix:"描述具體可觀察的行為與影響，而非評斷態度或表情。"}
     ]}
 };
 
@@ -271,7 +395,7 @@ function analyze(){
   for(const s of sentences){
     for(const key in CATS){
       for(const r of CATS[key].rules){
-        const m=matchRule(s,r); // 同規則同句只計一次
+        const m=matchRule(s,r);
         if(m){
           total += r.w; hitCount++;
           catHits[key]=(catHits[key]||0)+1;
@@ -284,11 +408,13 @@ function analyze(){
   switchTab("result");
 }
 
+let STRICT=true; // 預設「嚴格」敏感度
 function levelOf(total){
-  if(total>=10) return {t:"高風險",cls:"b-high",col:"var(--high)",pct:Math.min(100,40+total*3),
+  const hi=STRICT?6:10, mid=STRICT?2:4;
+  if(total>=hi) return {t:"高風險",cls:"b-high",col:"var(--high)",pct:Math.min(100,40+total*3),
     msg:"出現多處或高強度的不當言詞，已明顯落入霸凌風險區。建議於下次會議前重新檢視發言方式，並避免針對特定個人。"};
-  if(total>=4) return {t:"中度風險",cls:"b-mid",col:"var(--mid)",pct:Math.min(70,25+total*4),
-    msg:"出現若干可能讓人感到不適的語氣，雖未必構成霸凌，仍建議調整，降低累積成「持續性」的風險。"};
+  if(total>=mid) return {t:"中度風險",cls:"b-mid",col:"var(--mid)",pct:Math.min(70,25+total*4),
+    msg:"出現若干可能讓人感到不適或具壓迫感的語氣，雖未必構成霸凌，仍建議調整，降低累積成「持續性」的風險。"};
   if(total>0) return {t:"低度風險",cls:"b-low",col:"var(--low)",pct:18,
     msg:"偵測到少量需留意的措辭，整體尚屬可控。維持對事不對人即可。"};
   return {t:"未偵測到明顯風險",cls:"b-low",col:"var(--low)",pct:8,
@@ -306,13 +432,12 @@ function render(text,nSent,total,hitCount,catHits,flags){
   area.innerHTML=`
     <div class="score-box">
       <span class="badge ${lv.cls}">${lv.t}</span>
-      <span class="hint">風險指數 ${total}　|　命中語句 ${hitCount} 處　|　分析句數 ${nSent}</span>
+      <span class="hint">風險指數 ${total}　|　命中語句 ${hitCount} 處　|　分析句數 ${nSent}　|　敏感度：${STRICT?"嚴格":"標準"}</span>
     </div>
     <div class="meter"><span style="width:${lv.pct}%;background:${lv.col}"></span></div>
     <p style="margin:8px 0 0">${lv.msg}</p>
     ${catRows?`<h3>樣態分布</h3><table><tr><th>霸凌樣態</th><th>命中次數</th></tr>${catRows}</table>`:""}
   `;
-  // flags
   const fc=document.getElementById("flagsCard"), fl=document.getElementById("flags");
   if(flags.length){
     fc.style.display="block";
@@ -326,11 +451,15 @@ function render(text,nSent,total,hitCount,catHits,flags){
       </div>`;
     }).join("");
   } else { fc.style.display="none"; }
-  // reminders
   const rc=document.getElementById("reminderCard"), rm=document.getElementById("reminders");
   rc.style.display="block";
   const tips=buildReminders(catHits, total);
   rm.innerHTML=`<ul class="tight">${tips.map(t=>`<li>${t}</li>`).join("")}</ul>`;
+  // 供「記錄到我的趨勢」使用
+  let topCat="—",topN=-1; Object.keys(catHits).forEach(k=>{ if(catHits[k]>topN){topN=catHits[k];topCat=CATS[k].name;} });
+  lastResult={ total:total, level:lv.t, topCat:(hitCount?topCat:"—"), hits:hitCount };
+  document.getElementById("logRow").style.display="flex";
+  document.getElementById("logMsg").textContent="";
 }
 
 function buildReminders(catHits,total){
@@ -345,11 +474,12 @@ function buildReminders(catHits,total){
     D:"不對人下總評（如「你很糟」「你沒有反思能力」），戒掉反話揶揄；回到具體事實與下次可改善行為。",
     E:"工作量與期限要合理；不剝奪專業職務，不以「做不完是你的問題」施壓。",
     F:"不事後否認指示、不歸咎個人；用明確考核指標取代監控暗示。",
-    G:"絕不評論外貌、家庭、健康或人格等私領域；嚴禁威脅恐嚇。"
+    G:"絕不評論外貌、家庭、健康或人格等私領域；嚴禁威脅恐嚇。",
+    H:"留意隱性施壓：不用「抗壓性差／你自己負責／別人都可以」等情緒勒索；尊重下班與休息界線。"
   };
   const extra=Object.keys(catHits).filter(k=>catHits[k]>0).map(k=>map[k]);
   const arr=[...extra,...base];
-  if(total>=10) arr.unshift("⚠ 本次風險偏高：建議下次會議改以書面議程逐項討論，必要時請第三人（如HR）在場，降低對立。");
+  if(levelOf(total).t==="高風險") arr.unshift("⚠ 本次風險偏高：建議下次會議改以書面議程逐項討論，必要時請第三人（如HR）在場，降低對立。");
   return [...new Set(arr)];
 }
 
@@ -361,20 +491,54 @@ function switchTab(name){
 }
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>switchTab(t.dataset.t));
 
-/* ===================== 範例 / 清除 ===================== */
+/* ===================== 範例 / 清除 / 敏感度 ===================== */
 function loadSample(){
   document.getElementById("text").value=
 "主管：這個報告你到底會不會做，這麼簡單都做不好，重做。\n"+
 "主管：厲害喔，又遲到，不愧是你。\n"+
 "主管：下午的會議你不用參加，沒你的事。\n"+
-"主管：不爽不要做，你想被資遣嗎？\n"+
+"主管：這點壓力都受不了？現在年輕人就是抗壓性差。\n"+
+"主管：做不到就是沒做到，我只看結果，你自己看著辦。\n"+
 "主管：這次大家辛苦了，下週我們把進度同步一下。";
 }
 function clearText(){ document.getElementById("text").value=""; }
+function setSens(v){
+  STRICT=(v==="strict");
+  const t=document.getElementById("text").value.trim();
+  if(t && document.getElementById("flagsCard").style.display!=="none") analyze();
+}
 
-/* ===================== 語音轉文字 ===================== */
+/* ===================== 錄音：即時語音 + 穩定錄音存檔 ===================== */
 let recog=null, recOn=false, manualStop=false, recBaseText="";
 let liveScore=0, liveCount=0;
+
+/* 穩定錄音（MediaRecorder）：全程不中斷，結束後存音檔 */
+let mediaRec=null, mrChunks=[], mrStream=null, mrOn=false;
+async function toggleMR(){
+  const btn=document.getElementById("mrBtn"), hint=document.getElementById("recHint");
+  if(mrOn){ mediaRec.stop(); return; }
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    hint.textContent="⚠ 此瀏覽器不支援錄音存檔，建議使用 Chrome／Edge。"; return;
+  }
+  try{
+    mrStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(err){ hint.textContent="⚠ 無法取得麥克風："+err.message; return; }
+  mrChunks=[]; mediaRec=new MediaRecorder(mrStream);
+  mediaRec.ondataavailable=(e)=>{ if(e.data.size>0) mrChunks.push(e.data); };
+  mediaRec.onstart=()=>{ mrOn=true; btn.classList.add("on"); btn.textContent="⏹ 停止並存檔";
+    hint.textContent="● 穩定錄音中…全程不會中斷，按「停止並存檔」即可下載音檔。"; };
+  mediaRec.onstop=()=>{
+    mrOn=false; btn.classList.remove("on"); btn.textContent="⏺ 穩定錄音存檔（不中斷）";
+    mrStream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(mrChunks,{type:mediaRec.mimeType||"audio/webm"});
+    const url=URL.createObjectURL(blob);
+    document.getElementById("mrAudio").src=url;
+    document.getElementById("mrDl").href=url;
+    document.getElementById("mrOut").style.display="block";
+    hint.textContent="✅ 錄音完成，可播放／下載。將音檔用 Notion／Word 聽寫轉成逐字稿後，貼回上方分析。";
+  };
+  mediaRec.start(1000); // 每秒切片，降低長錄遺失風險
+}
 
 /* 即時判讀：分析剛說完的一段話，更新儀表板 */
 function liveAnalyze(chunk){
@@ -384,7 +548,7 @@ function liveAnalyze(chunk){
     for(const key in CATS){
       for(const r of CATS[key].rules){
         const m=matchRule(s,r);
-        if(m){ liveScore+=r.w; liveCount++; hits.push({s,m,key,name:CATS[key].name,why:r.why,fix:r.fix,w:r.w}); }
+        if(m){ liveScore+=r.w; liveCount++; hits.push({s,m,name:CATS[key].name,why:r.why,fix:r.fix,w:r.w}); }
       }
     }
   }
@@ -392,30 +556,29 @@ function liveAnalyze(chunk){
 }
 function setLight(state,text){
   const el=document.getElementById("liveLight");
-  el.className="live-light"+(state==="red"?" red":state==="amber"?" amber":"");
+  el.className="live-light"+(state==="red"?" red":(state==="amber"?" amber":""));
   el.textContent=text;
 }
 function updateLiveKPI(){
   document.getElementById("liveScore").textContent=liveScore;
   document.getElementById("liveCount").textContent=liveCount;
-  const lv=levelOf(liveScore);
-  document.getElementById("liveLevel").textContent=lv.t.replace("風險","").replace("度","").replace("未偵測到明顯","低");
+  const t=levelOf(liveScore).t;
+  document.getElementById("liveLevel").textContent = t.indexOf("高")>=0?"高":(t.indexOf("中")>=0?"中":"低");
 }
 function updateLive(hits){
   updateLiveKPI();
-  const alert=document.getElementById("liveAlert");
+  const alertBox=document.getElementById("liveAlert");
   if(hits.length){
-    const maxW=Math.max(...hits.map(h=>h.w));
+    const maxW=Math.max.apply(null,hits.map(h=>h.w));
     if(maxW>=5){ setLight("red","🔴 紅燈 · 偵測到高風險語氣，請立即緩和"); beep(); }
     else { setLight("amber","🟠 黃燈 · 語氣偏向不當，建議調整"); }
-    alert.innerHTML=hits.map(h=>{
+    alertBox.innerHTML=hits.map(h=>{
       const hl=h.s.replace(h.m,`<mark>${h.m}</mark>`);
       return `<div class="a-item">⚑ <b>${h.name}</b>：「${hl}」<br><span class="hint">${h.why}</span>
         <div class="a-fix">💡 可改說：${h.fix}</div></div>`;
     }).join("");
   } else {
     setLight("green","🟢 綠燈 · 語氣正常");
-    // 不清空既有警示，保留最近一次提醒供主管參考
   }
 }
 let _actx=null;
@@ -430,26 +593,25 @@ function beep(){
     o.start(); o.stop(_actx.currentTime+0.26);
   }catch(_){}
 }
+
 function toggleRec(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const hint=document.getElementById("recHint"), btn=document.getElementById("recBtn");
-  if(!SR){ hint.textContent="⚠ 此瀏覽器不支援語音辨識，建議使用 Chrome／Edge，或直接貼上逐字稿。"; return; }
-  // 手動停止
+  if(!SR){ hint.textContent="⚠ 此瀏覽器不支援語音辨識，建議使用 Chrome／Edge，或改用『穩定錄音存檔』，或直接貼上逐字稿。"; return; }
   if(recOn){ manualStop=true; recog.stop(); return; }
 
   manualStop=false;
-  recBaseText=document.getElementById("text").value; // 以現有文字為基底，續錄不覆蓋
+  recBaseText=document.getElementById("text").value;
   if(recBaseText && !recBaseText.endsWith("\n")) recBaseText+="\n";
   // 啟動即時儀表板
   liveScore=0; liveCount=0;
   document.getElementById("liveCard").style.display="block";
   document.getElementById("liveAlert").innerHTML="";
   setLight("green","🟢 綠燈 · 語氣正常"); updateLiveKPI();
-  recog=new SR(); recog.lang="zh-TW"; recog.continuous=true; recog.interimResults=true;
 
+  recog=new SR(); recog.lang="zh-TW"; recog.continuous=true; recog.interimResults=true;
   recog.onstart=()=>{ recOn=true; btn.classList.add("on"); btn.textContent="⏹ 停止錄音";
     hint.textContent="● 持續錄音中…文字會即時填入上方，會持續記錄直到你按「停止錄音」。"; };
-
   recog.onresult=(e)=>{
     let interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){
@@ -458,24 +620,19 @@ function toggleRec(){
     }
     document.getElementById("text").value=recBaseText+interim;
   };
-
-  // 發生 no-speech / 逾時等非致命錯誤時，不要中斷，交給 onend 自動續錄
   recog.onerror=(e)=>{
     if(e.error==="not-allowed"||e.error==="service-not-allowed"){
       manualStop=true; hint.textContent="⚠ 麥克風權限被拒，請於瀏覽器允許麥克風後再試。"; return;
     }
-    // no-speech / aborted / network 等：靜默，等 onend 重啟
+    // no-speech / aborted / network 等：靜默，交給 onend 自動續錄
   };
-
-  // 關鍵：瀏覽器因停頓自動結束時，只要不是手動停止就自動續錄，達成「不中斷」
   recog.onend=()=>{
     if(!manualStop){
-      try{ recog.start(); return; }catch(_){ /* 偶發重入，略過 */ }
+      try{ recog.start(); return; }catch(_){ }
     }
     recOn=false; btn.classList.remove("on"); btn.textContent="🎙 即時語音轉文字";
     hint.textContent="錄音已停止。可按「開始判讀風險」分析。";
   };
-
   recog.start();
 }
 
@@ -517,6 +674,261 @@ function initLaw(){
   }).join("");
 }
 
+/* ===================== LLM 語意複核（選用） ===================== */
+function llmPreset(v){
+  const ep=document.getElementById("llmEndpoint"), md=document.getElementById("llmModel");
+  if(v==="ollama"){ ep.value="http://localhost:11434/v1"; if(!md.value) md.value="llama3.1"; }
+  else if(v==="openai"){ ep.value="https://api.openai.com/v1"; if(!md.value) md.value="gpt-4o-mini"; }
+}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}
+const LLM_SYS=`你是熟悉台灣《職業安全衛生法》職場霸凌防治專章（2026/7/1施行）的勞動關係審查專家。請判讀「主管於會議中的發言逐字稿」是否含職場霸凌或隱性施壓語氣。
+依勞動部七大樣態(A吹毛求疵 / B孤立排擠 / C當眾羞辱威脅 / D貶抑否定含諷刺揶揄 / E過量或剝奪職務 / F設下陷阱推責 / G隱私與人格攻擊)及隱性施壓層(H)分類，並參酌五構成要件(權勢關係、逾越合理範圍、持續性、職場相關、身心危害)。
+重要：正當的績效要求、就事論事的糾正不算霸凌；只標記「逾越合理範圍、針對個人、或造成壓迫」者。
+務必「只輸出 JSON」，不要任何多餘文字或說明，格式：
+{"overall":"低|中|高","rationale":"一句總結","issues":[{"quote":"原句","type":"樣態字母與名稱","intensity":"L1|L2|L3","why":"為何有風險","rewrite":"合理管理的改寫句"}],"management_advice":["給主管的管理調整建議"]}`;
+async function llmReview(){
+  const text=document.getElementById("text").value.trim();
+  const out=document.getElementById("llmOut");
+  if(!text){ out.innerHTML='<span class="hint">請先在「① 會議輸入」貼上或錄製內容。</span>'; return; }
+  const ep=document.getElementById("llmEndpoint").value.trim().replace(/\/+$/,"");
+  const model=document.getElementById("llmModel").value.trim();
+  const key=document.getElementById("llmKey").value.trim();
+  if(!ep||!model){ out.innerHTML='<span class="hint">請先設定端點與模型。</span>'; return; }
+  out.innerHTML='<span class="hint">⏳ LLM 複核中…（首次呼叫本機模型可能較久）</span>';
+  try{
+    const res=await fetch(ep+"/chat/completions",{
+      method:"POST",
+      headers:Object.assign({"Content-Type":"application/json"}, key?{"Authorization":"Bearer "+key}:{}),
+      body:JSON.stringify({model:model,temperature:0.2,messages:[
+        {role:"system",content:LLM_SYS},
+        {role:"user",content:"請複核以下主管會議逐字稿：\n"+text}
+      ]})
+    });
+    if(!res.ok){ throw new Error("HTTP "+res.status+"："+(await res.text()).slice(0,200)); }
+    const data=await res.json();
+    let txt=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||"";
+    txt=txt.replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+    let j; try{ j=JSON.parse(txt); }catch(_){ out.innerHTML='<div class="flag">LLM 回傳非 JSON，原文：<br>'+escapeHtml(txt)+'</div>'; return; }
+    renderLLM(j);
+  }catch(err){
+    out.innerHTML='<div class="disclaimer">⚠ 呼叫失敗：'+escapeHtml(err.message)+'<br>'+
+      '常見原因：① <b>雲端 API（OpenAI/Anthropic）會被瀏覽器 CORS 阻擋</b>，請改用<b>本機 Ollama</b>或自架代理；② 端點／金鑰錯誤；③ 本機模型尚未啟動（先執行 <code>ollama run llama3.1</code>，並設定 <code>OLLAMA_ORIGINS=*</code>）。</div>';
+  }
+}
+function renderLLM(j){
+  const lvCls=j.overall==="高"?"b-high":(j.overall==="中"?"b-mid":"b-low");
+  const issues=(j.issues||[]).map(it=>`<div class="flag" style="border-left-color:var(--high)">
+    <div class="cat">⚑ ${escapeHtml(it.type||"")} ${it.intensity?("· "+escapeHtml(it.intensity)):""}</div>
+    <div class="q">原句：${escapeHtml(it.quote||"")}</div>
+    <div class="q">風險點：${escapeHtml(it.why||"")}</div>
+    <div class="fix">💡 改寫：${escapeHtml(it.rewrite||"")}</div></div>`).join("");
+  const adv=(j.management_advice||[]).map(a=>`<li>${escapeHtml(a)}</li>`).join("");
+  document.getElementById("llmOut").innerHTML=
+    `<div class="score-box"><span class="badge ${lvCls}">LLM 評估：${escapeHtml(j.overall||"?")}風險</span>
+     <span class="hint">${escapeHtml(j.rationale||"")}</span></div>`+
+    (issues||"")+
+    (adv?`<h3>管理調整建議</h3><ul class="tight">${adv}</ul>`:"");
+}
+
+/* ===================== ⑤ 情境提醒（即時微提示） ===================== */
+const SCENARIOS=[
+  {t:"下班後傳工作訊息",when:"晚上、假日要在 LINE／Teams 傳訊前",script:"如果非緊急，就排到明天上班再傳；真的緊急，先說明原因並致歉佔用了休息時間。"},
+  {t:"群組裡公開糾正",when:"想在部門群組點名或檢討某人時",script:"如果要指正，就改用一對一私訊；群組只談事、不點名特定人。"},
+  {t:"一對一績效面談",when:"考核或面談要給負面回饋時",script:"如果要談不足，就先講具體事實＋下一步期待，不用考績／升遷施壓，也不下人格總評。"},
+  {t:"交辦與退件",when:"要按退件、或派緊急任務前",script:"如果退件，就附上明確標準與優先序；如果急件，就說明原因並協助排開其他工作。"},
+  {t:"帶新人／試用期",when:"指導新人或評估試用期時",script:"如果想說『撐不過就走人／磨練你』，就改成具體可達成的目標＋檢核點＋我能提供的支援。"},
+  {t:"遠距監控",when:"想查線上狀態、要求開鏡頭、緊盯回覆時",script:"如果要追進度，就用產出與檢核點衡量，不用上線時長或私訊監控。"},
+  {t:"社交／玩笑場合",when:"聚餐揪人、開玩笑、取綽號時",script:"如果有人沒被揪、或玩笑針對個人，就停下；別用『開不起玩笑』淡化對方感受。"},
+  {t:"請假／健康／家庭",when:"員工請假或提到健康、家庭時",script:"如果想表達不滿，就改為依規定協助請假與交接，不評論其健康或私事。"},
+  {t:"升遷／調動",when:"安排職務調整時",script:"如果是調動，就說明客觀理由與對其發展的意義，不用調職冷凍或邊緣化特定人。"},
+  {t:"跨部門指揮",when:"要求非直屬同仁配合時",script:"如果動用職務關係，就一樣對事不對人——平級、跨部門同樣可能構成霸凌。"}
+];
+const PRECOMMIT=[
+  "我會對事不對人，不對任何人下人格總評。",
+  "我會讓每個人把話講完，不打斷、不嘲諷、不排除特定人發言。",
+  "退件或交辦時，我會附上明確標準與合理期限。",
+  "負面回饋我會私下個別談，不在眾人面前點名。"
+];
+function renderScenarios(){
+  document.getElementById("scenarioList").innerHTML=SCENARIOS.map((s,i)=>
+    `<div class="flag" style="border-left-color:var(--brand)">
+      <div class="cat">${i+1}. ${escapeHtml(s.t)}</div>
+      <div class="q">觸發時機：${escapeHtml(s.when)}</div>
+      <div class="fix">💡 ${escapeHtml(s.script)}</div></div>`).join("");
+}
+function newPremeet(){
+  const tip=SCENARIOS[Math.floor(Math.random()*SCENARIOS.length)];
+  document.getElementById("premeet").innerHTML=
+    PRECOMMIT.map((c,i)=>`<label class="check"><input type="checkbox" id="pm${i}" onchange="pmEval()"><span>${escapeHtml(c)}</span></label>`).join("")+
+    `<div class="flag" style="border-left-color:var(--brand);margin-top:10px">
+       <div class="cat">本次特別留意：${escapeHtml(tip.t)}</div>
+       <div class="fix">💡 ${escapeHtml(tip.script)}</div></div>`;
+  document.getElementById("premeetMsg").innerHTML="";
+}
+function pmEval(){
+  let n=0; for(let i=0;i<PRECOMMIT.length;i++){const e=document.getElementById("pm"+i); if(e&&e.checked)n++;}
+  document.getElementById("premeetMsg").innerHTML = n===PRECOMMIT.length
+    ? '<span class="badge b-low">✅ 準備好了，帶著覺察進會議。</span>' : "";
+}
+function checkMsg(){
+  const t=document.getElementById("msgText").value.trim();
+  const out=document.getElementById("msgOut");
+  if(!t){ out.innerHTML='<span class="hint">請先貼上訊息。</span>'; return; }
+  const hits=[]; const ss=splitSentences(t);
+  for(const s of ss)for(const k in CATS)for(const r of CATS[k].rules){const m=matchRule(s,r);if(m)hits.push({name:CATS[k].name,m:m,fix:r.fix});}
+  const now=new Date(), hr=now.getHours(), day=now.getDay();
+  let timeWarn="";
+  if(day===0||day===6) timeWarn="現在是週末";
+  else if(hr<8||hr>=18) timeWarn="現在是上班時間以外";
+  let html="";
+  if(timeWarn) html+=`<div class="disclaimer">⏰ ${timeWarn}：非緊急的工作訊息建議排到上班時間再傳，避免觸及「下班通訊」紅線。</div>`;
+  if(hits.length){
+    html+=hits.map(h=>`<div class="flag" style="border-left-color:var(--high)">
+      <div class="cat">⚑ ${escapeHtml(h.name)}（命中「${escapeHtml(h.m)}」）</div>
+      <div class="fix">💡 ${escapeHtml(h.fix)}</div></div>`).join("");
+  } else {
+    html+=`<div class="flag" style="border-left-color:var(--low)">語氣未觸發風險規則。仍請確認是否對事不對人。</div>`;
+  }
+  out.innerHTML=html;
+}
+/* 每日微提醒：以「年內第幾天」輪播，並用通知排程 */
+function tipOfDay(){
+  const now=new Date();
+  const day=Math.floor((now-new Date(now.getFullYear(),0,0))/86400000);
+  return SCENARIOS[day % SCENARIOS.length];
+}
+function renderTodayTip(){
+  const tip=tipOfDay();
+  document.getElementById("todayTip").innerHTML=
+    `<div class="flag" style="border-left-color:var(--brand)">
+       <div class="cat">${escapeHtml(tip.t)}</div>
+       <div class="q">觸發時機：${escapeHtml(tip.when)}</div>
+       <div class="fix">💡 ${escapeHtml(tip.script)}</div></div>`;
+}
+let notifTimer=null;
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){} }
+function scheduleDaily(){
+  if(notifTimer) clearTimeout(notifTimer);
+  const t=document.getElementById("notifTime").value||"08:30";
+  const parts=t.split(":"); const h=+parts[0], m=+parts[1];
+  const now=new Date(), next=new Date();
+  next.setHours(h,m,0,0); if(next<=now) next.setDate(next.getDate()+1);
+  notifTimer=setTimeout(()=>{ fireDailyTip(); scheduleDaily(); }, next-now);
+}
+function fireDailyTip(){
+  const tip=tipOfDay();
+  try{ if(window.Notification && Notification.permission==="granted")
+    new Notification("職場霸凌 · 今日自我提醒",{body:tip.t+"：\n"+tip.script}); }catch(_){}
+}
+function enableNotif(){
+  const msg=document.getElementById("notifMsg");
+  if(!("Notification" in window)){ msg.textContent="⚠ 此瀏覽器不支援通知。"; return; }
+  Notification.requestPermission().then(p=>{
+    if(p==="granted"){
+      lsSet("notifEnabled","1"); lsSet("notifTime",document.getElementById("notifTime").value);
+      scheduleDaily();
+      msg.textContent="✅ 已啟用，每天 "+document.getElementById("notifTime").value+" 會提醒你（需保持此頁開啟）。";
+    } else { msg.textContent="⚠ 通知權限未開啟，請於瀏覽器允許通知後再試。"; }
+  });
+}
+function disableNotif(){
+  lsSet("notifEnabled","0"); if(notifTimer) clearTimeout(notifTimer);
+  document.getElementById("notifMsg").textContent="已關閉每日提醒。";
+}
+function restoreNotif(){
+  const tm=lsGet("notifTime"); if(tm) document.getElementById("notifTime").value=tm;
+  if(lsGet("notifEnabled")==="1" && window.Notification && Notification.permission==="granted"){
+    scheduleDaily(); document.getElementById("notifMsg").textContent="✅ 每日提醒已啟用（"+(tm||"08:30")+"）。";
+  }
+}
+
+/* ===================== PWA：安裝 + Service Worker + 每日背景提醒 ===================== */
+let deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",(e)=>{ e.preventDefault(); deferredPrompt=e;
+  const b=document.getElementById("installBtn"); if(b) b.style.display="inline-block"; });
+window.addEventListener("appinstalled",()=>{ const b=document.getElementById("installBtn"); if(b) b.style.display="none"; });
+function doInstall(){
+  if(!deferredPrompt){ alert("若沒有出現安裝視窗：\niPhone／iPad 請用 Safari『分享 → 加入主畫面』；\nAndroid／桌面 Chrome 請點網址列的『安裝』圖示。"); return; }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.finally(()=>{ deferredPrompt=null; const b=document.getElementById("installBtn"); if(b) b.style.display="none"; });
+}
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("sw.js").then(async(reg)=>{
+      try{
+        if("periodicSync" in reg && navigator.permissions){
+          const st=await navigator.permissions.query({name:"periodic-background-sync"});
+          if(st.state==="granted"){ await reg.periodicSync.register("daily-tip",{minInterval:24*60*60*1000}); }
+        }
+      }catch(_){}
+    }).catch(()=>{});
+  });
+}
+
+/* ===================== ⑥ 我的趨勢（本機自我監測） ===================== */
+let lastResult=null;
+function getLog(){ try{ return JSON.parse(localStorage.getItem("bullyLog")||"[]"); }catch(_){ return []; } }
+function saveLog(a){ try{ localStorage.setItem("bullyLog",JSON.stringify(a)); }catch(_){} }
+function logResult(){
+  if(!lastResult){ return; }
+  const a=getLog();
+  a.push({d:new Date().toISOString(), total:lastResult.total, level:lastResult.level, cat:lastResult.topCat, hits:lastResult.hits});
+  saveLog(a); renderTrend();
+  document.getElementById("logMsg").textContent="✅ 已記錄。可到「⑥ 我的趨勢」查看曲線。";
+}
+function clearLog(){ if(confirm("確定清除所有記錄？此動作無法復原。")){ saveLog([]); renderTrend(); } }
+function delEntry(i){ const a=getLog(); a.splice(i,1); saveLog(a); renderTrend(); }
+function fmtDate(iso){ const d=new Date(iso); const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function renderTrend(){
+  const a=getLog();
+  document.getElementById("tCount").textContent=a.length;
+  if(!a.length){
+    document.getElementById("tAvg").textContent="—";
+    document.getElementById("tTrend").textContent="—";
+    document.getElementById("tTopCat").textContent="—";
+    document.getElementById("trendChart").innerHTML='<div class="empty">尚無記錄。在「② 風險判讀」按「記錄這次結果」即可開始累積。</div>';
+    document.getElementById("trendList").innerHTML="";
+    return;
+  }
+  const avg=a.reduce((s,x)=>s+x.total,0)/a.length;
+  document.getElementById("tAvg").textContent=avg.toFixed(1);
+  let trend="—";
+  if(a.length>=2){
+    const h=Math.floor(a.length/2);
+    const first=a.slice(0,h), last=a.slice(h);
+    const fa=first.reduce((s,x)=>s+x.total,0)/first.length, la=last.reduce((s,x)=>s+x.total,0)/last.length;
+    trend = la<fa-0.5 ? "↓ 改善中" : (la>fa+0.5 ? "↑ 需注意" : "→ 持平");
+  }
+  document.getElementById("tTrend").textContent=trend;
+  const cc={}; a.forEach(x=>{ if(x.cat&&x.cat!=="—") cc[x.cat]=(cc[x.cat]||0)+1; });
+  let topCat="—",tn=-1; Object.keys(cc).forEach(k=>{ if(cc[k]>tn){tn=cc[k];topCat=k;} });
+  document.getElementById("tTopCat").textContent=topCat;
+  document.getElementById("trendChart").innerHTML=barChart(a.slice(-20));
+  document.getElementById("trendList").innerHTML=
+    "<table><tr><th>時間</th><th>指數</th><th>等級</th><th>主要樣態</th><th></th></tr>"+
+    a.map((x,i)=>`<tr><td>${fmtDate(x.d)}</td><td>${x.total}</td><td>${escapeHtml(x.level)}</td><td>${escapeHtml(x.cat)}</td>
+      <td><a href="#" onclick="delEntry(${i});return false" style="color:var(--high)">刪除</a></td></tr>`).reverse().join("")+
+    "</table>";
+}
+function barChart(items){
+  const W=Math.max(320, items.length*34), H=160, pad=24;
+  const max=Math.max(6, Math.max.apply(null, items.map(x=>x.total)));
+  const slot=(W-pad*2)/items.length, bw=Math.max(10, slot-8);
+  let bars="";
+  items.forEach((x,i)=>{
+    const h=(x.total/max)*(H-pad*2);
+    const xx=pad+i*slot+4, yy=H-pad-h;
+    const col=x.total>=(STRICT?6:10)?"var(--high)":(x.total>=(STRICT?2:4)?"var(--mid)":"var(--low)");
+    bars+=`<rect x="${xx.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${col}"></rect>`;
+    bars+=`<text x="${(xx+bw/2).toFixed(1)}" y="${(yy-3).toFixed(1)}" font-size="10" text-anchor="middle" fill="var(--sub)">${x.total}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;border:1px solid var(--line);border-radius:8px;background:#fff">
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--line)"></line>${bars}</svg>`;
+}
+
+renderScenarios(); newPremeet(); renderTodayTip(); restoreNotif(); renderTrend();
 initCheck(); evalCheck(); initLaw();
 </script>
 </body>
