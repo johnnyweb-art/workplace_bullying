@@ -1,7 +1,7 @@
 /* Service Worker：離線快取 + 漸進式每日提醒
-   v2：HTML 改為「網路優先」，確保更新後一定看到最新頁面（離線才回退快取）。 */
-const CACHE = "bully-app-v2";
-const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
+   v3：HTML 與 rules.json 皆「網路優先」，確保更新後一定看到最新內容（離線才回退快取）。 */
+const CACHE = "bully-app-v3";
+const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./rules.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -19,14 +19,15 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const accept = req.headers.get("accept") || "";
   const isHTML = req.mode === "navigate" || accept.includes("text/html");
-  if (isHTML) {
-    // 網路優先：永遠拿最新頁面；離線時回退到快取
+  const isRules = req.url.indexOf("rules.json") !== -1;
+  if (isHTML || isRules) {
+    // 網路優先：永遠拿最新內容；離線時回退到快取
     e.respondWith(
       fetch(req).then((res) => {
         const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put("./index.html", copy));
+        caches.open(CACHE).then((c) => c.put(req, copy));
         return res;
-      }).catch(() => caches.match("./index.html").then((r) => r || caches.match("./")))
+      }).catch(() => caches.match(req).then((r) => r || caches.match("./index.html")))
     );
   } else {
     // 其他靜態資源：快取優先，沒有再上網抓
